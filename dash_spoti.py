@@ -6,19 +6,9 @@ import dash
 from dash import dcc
 from dash import html
 
-# A la hora de desarrollar una aplicación para visualizar datos tendremos que combinar 
-# elementos de HTML y CSS con elementos propios de Dash. Lo primero que tendremos que 
-# hacer siempre es inicializar una aplicación de Dash
 
 app = dash.Dash()
 
-# Una vez hemos inicializado la aplicacion, modificamos el diseño de la aplicacion
-
-# IMPORTANTE: Hay que ser extremadamente ordenado con el código para que se entienda
-# correctamente que se está haciendo en cada parte. Se recomienda un vistazo a la 
-# libreria Black para formateo del código.
-
-# Primer dashboard 
 app.layout = html.Div(  # Creamos una componente que realice la primera división del dashboard
     children = [
         html.H1( # Primera fila

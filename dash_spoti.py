@@ -144,6 +144,7 @@ app.layout = html.Div(  # Creamos una componente que realice la primera divisió
         "margin-left": "125px",
         "margin-top": "100px",
         "border-style": "groove",
+        "backgroundColour":"black"
     } 
 )
 

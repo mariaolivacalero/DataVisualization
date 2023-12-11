@@ -62,6 +62,74 @@ max_time  = artist_length_uniqsong.sort_values(by=['mins_played'])
 # top 30 artist I listen to (tail because the df is in ascending order of count of minutes)
 most_heard_30 = max_time.tail(30)
 
+def year_analysis(df):
+    #identifying the month
+    df['month'] = df.endTime.str.split('-').apply(lambda x: (x[0], x[1]))
+
+    #listing months and features
+    months = list(set(df.month.values))
+    months.sort()
+    features = ['danceability', 'energy', 'speechiness', 'instrumentalness', 'valence',"loudness","tempo"]
+
+    #standardizing features (we're interested not in their absolute value, but in how each changed over time)
+    for feature in features:
+        df[f'{feature}_zscore'] = ( df[feature] - df[feature].mean() ) / df[feature].std()
+
+    #making sure we standardized correctly: mean is 0 and std is 1
+    df[[feature + '_zscore' for feature in features]].describe().loc['mean':'std'].T
+
+    #features averages by month
+    Month = namedtuple('Month', features)
+    avg_features_months = []
+    for month in months:
+        df_month = df[df['month'] == month]
+        avg_features = df_month.describe().loc['mean'][[feature + '_zscore' for feature in features]]
+        month = Month(*avg_features)
+        avg_features_months.append(month)
+
+    #labelling months
+    month_labels = [f'{month[1]}/{month[0]}' for month in months]
+    month_labels_short = [m[:3]+m[-2:] for m in month_labels]
+
+    features = ['valence', 'energy', 'danceability', 'speechiness', 'instrumentalness',"loudness","tempo"]
+    x = [-1] + [x for x in range(13)]
+
+    # Create traces for each feature
+    traces = []
+    for feature in features:
+        y = [getattr(month, feature) for month in avg_features_months]
+        traces.append(go.Scatter(x=x, y=y, mode='lines+markers', name=feature))
+
+    # Create the layout
+    layout = go.Layout(
+        title='My mood this past year (According to Spotify)',
+        xaxis=dict(
+            title='Months',
+            tickmode='array',
+            tickvals=list(range(13)),
+            ticktext=month_labels_short,
+        ),
+        yaxis=dict(
+            title='Mood',
+        ),
+        showlegend=True,
+    )
+
+    # Add annotations
+    annotations = [
+        dict(x=1, y=0.4, xref="x", yref="y", text="Studying", showarrow=True, arrowhead=5, ax=0, ay=-40, font=dict(size=14)),
+        dict(x=4.15, y=0.4, xref="x", yref="y", text="Travelling", showarrow=True, arrowhead=5, ax=0, ay=-40, font=dict(size=14)),
+        dict(x=6.75, y=0.4, xref="x", yref="y", text="Graduating", showarrow=True, arrowhead=5, ax=0, ay=-40, font=dict(size=14)),
+        dict(x=10.35, y=0.4, xref="x", yref="y", text="Back to school", showarrow=True, arrowhead=5, ax=0, ay=-40, font=dict(size=14)),
+    ]
+
+    layout['annotations'] = annotations
+
+    # Create the figure
+    fig = go.Figure(data=traces, layout=layout)
+
+    return fig
+
 track_characteristics = df.groupby('trackName').agg({
     'artistName': 'first',
     'danceability': 'mean',
@@ -461,8 +529,14 @@ new_daily_length = new_daily_length.drop(new_daily_length.loc[:, 'msPlayed':'tim
 graphyears = dcc.Graph(
     id='graphyears',
     config={'displayModeBar': False},
+    style={'flex': '1', 'padding': '20px', 'float': 'left', 'width': '60%'}
 )
 
+year = dcc.Graph(
+    id='year',
+    config={'displayModeBar': False},
+    style={'flex': '1', 'padding': '20px', 'float': 'left', 'width': '70%'}
+)
 playlists = {"playlist1":0,"playlist2":1,"playlist3":2,"playlist4":3, "playlist5":4}
 
 # Lista de playlists 
@@ -475,17 +549,64 @@ encoded_logo = base64.b64encode(open(logo, 'rb').read()).decode('ascii')
 # Dash APP
 app = dash.Dash(__name__)
 
-# Definir el layout
+# Layout de la aplicación
 app.layout = html.Div(children=[
     # Sección superior con logo y título
     html.Div([
         html.Img(src=f'data:image/png;base64,{encoded_logo}', style={'height': '100px'}),
-        html.H1("My year on Spotify", style={'text-align': 'center'}),
+        html.H1("My year on Spotify", style={'text-align': 'center', 'font-family': 'SpotifyFont'}),  # Use Spotify-like font
     ], style={'text-align': 'center', 'padding': '20px'}),
 
-    # Sección izquierda con gráficas
+    # Primera fila
     html.Div([
+        # Years graph en la izquierda
+        year,
+
+        # Dropdown y tabla en la derecha
+        html.Div([
+            dcc.Dropdown(
+                id='playlist-dropdown',
+                options=playlist_options,
+                value=playlist_options[0]['value'],
+                multi=False,
+                style={'margin-bottom': '20px'}
+            ),
+
+            dash_table.DataTable(
+                id='tabla',
+                columns=[],
+                data=[],
+                style_table={
+                    'height': '400px',
+                    'overflowY': 'auto',
+                    'backgroundColor': 'rgb(30 215 96)',
+                },
+                style_header={
+                    'backgroundColor': 'rgb(30 215 96)',
+                    'color': 'white',
+                    'fontWeight': 'bold',
+                },
+                style_cell={
+                    'backgroundColor': 'rgb(152,251,152)',
+                    'color': 'black',
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': 'rgb(144,238,144)',
+                    },
+                ],
+                virtualization=True,
+            ),
+        ], style={'flex': '1', 'padding': '20px', 'float': 'right', 'width': '60%'}),
+    ], style={'display': 'flex'}),
+
+    # Segunda fila
+    html.Div([
+        # Graph years en la izquierda
         graphyears,
+
+        # Most heard artists en la derecha
         dcc.Graph(
             figure = px.bar(most_heard_30, 
              x='mins_played', 
@@ -494,63 +615,24 @@ app.layout = html.Div(children=[
              title='Top 30 Artists Heard',
              labels={'artistName': 'Artist Name', 'mins_played': 'Minutes Played'},
              color='mins_played',  # Use 'mins_played' as the color variable
-             color_continuous_scale='greens')),  # Set your desired color sequence) 
-    ], style={'flex': '1', 'padding': '20px', 'float': 'left'}),
-
-    # Sección derecha con dropdown y tabla
-    html.Div([
-        # Dropdown para seleccionar la playlist
-        dcc.Dropdown(
-            id='playlist-dropdown',
-            options=playlist_options,
-            value=playlist_options[0]['value'],  # Valor inicial
-            multi=False,
-            style={ 'margin-bottom': '20px'}
-        ),
-        
-        # Tabla en Dash
-        dash_table.DataTable(
-            id='tabla',
-            columns=[],
-            data=[],
-style_table={
-                'height': '400px',
-                'overflowY': 'auto',
-                'backgroundColor': 'rgb(30 215 96)',  # Change background color to light green
-            },
-            style_header={
-                'backgroundColor': 'rgb(30 215 96)',
-                'color': 'white',
-                'fontWeight': 'bold',
-            },
-            style_cell={
-                'backgroundColor': 'rgb(152,251,152)',
-                'color': 'black',
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': 'rgb(144,238,144)',
-                },
-            ],
-            virtualization=True,  # Enable virtualization for large datasets
-        ), 
-        html.Div([
-        dcc.Graph(figure=scatter_loudness_energy),
-        dcc.Graph(figure=scatter_valence_danceability),
+             color_continuous_scale='greens')),
     ], style={'display': 'flex'}),
 
+    # Tercera fila
     html.Div([
+        dcc.Graph(figure=scatter_loudness_energy),
+        dcc.Graph(figure=scatter_valence_danceability),
         dcc.Graph(figure=scatter_valence_energy),
-        dcc.Graph(figure=scatter_loudness_valence),
     ], style={'display': 'flex'}),
 
     html.Div([
         dcc.Graph(figure=scatter_loudness_liveness),
         dcc.Graph(figure=scatter_danceability_tempo),
+        dcc.Graph(figure=scatter_loudness_valence),
     ], style={'display': 'flex'})
-    ], style={'flex': '1', 'padding': '20px', 'float': 'right', 'width': '40%'}),
+
 ])
+
            
 
 # Callback para actualizar la tabla según la playlist seleccionada
@@ -583,6 +665,9 @@ for i in new_daily_length["secPlayed"]:
 
 fig = display_years(z, (2022, 2023))
 app.layout['graphyears'].figure = fig
+
+year = year_analysis(df)
+app.layout["year"].figure = year
 
 # Ejecutar la aplicación
 if __name__ == '__main__':

@@ -62,6 +62,8 @@ max_time  = artist_length_uniqsong.sort_values(by=['mins_played'])
 # top 30 artist I listen to (tail because the df is in ascending order of count of minutes)
 most_heard_30 = max_time.tail(30)
 
+
+
 def year_analysis(df):
     #identifying the month
     df['month'] = df.endTime.str.split('-').apply(lambda x: (x[0], x[1]))
@@ -312,6 +314,7 @@ import pandas as pd
 from sklearn import preprocessing
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+import pandas as pd
 
 # Select the top 300 most listened songs
 top_songs = track_characteristics.nlargest(300, 'msPlayed')
